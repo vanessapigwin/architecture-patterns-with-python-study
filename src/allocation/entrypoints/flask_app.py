@@ -1,5 +1,5 @@
 from flask import Flask, request
-from slqalchemy import create_engine
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from allocation import config
@@ -16,14 +16,14 @@ app = Flask(__name__)
 @app.route("/allocate", methods=["POST"])
 def allocate_endpoint():
     session = get_session()
-    repo = repository.SqlAlchemyRepository(session)
+    repo = repository.SqlAlchemyRepository(session).list()
     line = model.OrderLine(
         request.json["orderid"], request.json["sku"], request.json["qty"]
     )
 
     try:
-        batchref = services.allocate(line, repo, session)
-    except (model.OutOfStock, service.InvalidSku) as e:
+        batchref = services.allocate(line, repo)
+    except (model.OutOfStock, services.InvalidSku) as e:
         return {"message": str(e)}, 400
 
-    return {"bacthref": batchref}, 201
+    return {"batch_ref": batchref}, 201

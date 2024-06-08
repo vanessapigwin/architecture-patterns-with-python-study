@@ -25,9 +25,9 @@ def random_orderid(name=""):
 def test_api_returns_allocation(add_stock):
     sku, othersku = random_sku(), random_sku("other")
 
-    earlybatch = random_batchref(1)
-    laterbatch = random_batchref(2)
-    otherbatch = random_batchref(3)
+    earlybatch = random_batchref("1")
+    laterbatch = random_batchref("2")
+    otherbatch = random_batchref("3")
 
     add_stock(
         [

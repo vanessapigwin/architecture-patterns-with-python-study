@@ -5,7 +5,6 @@ RUN apk add libpq
 
 COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
-
 RUN apk del --no-cache .build-deps
 
 RUN mkdir -p /src

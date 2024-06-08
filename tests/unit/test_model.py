@@ -1,10 +1,10 @@
 from allocation.domain.model import Batch, OrderLine
-from tests.conftest import today
+from datetime import date
 from test_batches import make_batch_and_line
 
 
 def test_allocating_to_a_batch_reduces_the_available_quantity():
-    batch = Batch("batch-001", "SMALL-TABLE", qty=20, eta=today)
+    batch = Batch("batch-001", "SMALL-TABLE", qty=20, eta=date.today())
     line = OrderLine("order-ref", "SMALL-TABLE", 2)
 
     batch.allocate(line)

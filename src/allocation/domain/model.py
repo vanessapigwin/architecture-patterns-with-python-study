@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import Optional, List, Set
 from datetime import date
+from typing import Optional
 
 
 @dataclass(unsafe_hash=True)
@@ -54,15 +54,6 @@ class Batch:
 
     def can_allocate(self, line):
         return self.available_quantity >= line.qty and self.sku == line.sku
-
-
-def allocate(line: OrderLine, batches: List[Batch]) -> str:
-    try:
-        batch = next(b for b in sorted(batches) if b.can_allocate(line))
-        batch.allocate(line)
-        return batch.reference
-    except StopIteration:
-        raise OutOfStock(f"Out of stock for sku {line.sku}")
 
 
 class OutOfStock(Exception):

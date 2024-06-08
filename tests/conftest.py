@@ -8,8 +8,6 @@ from sqlalchemy.orm import sessionmaker, clear_mappers
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import text
 
-
-from datetime import date, timedelta
 from allocation.adapters.orm import metadata, start_mappers
 import allocation.config as config
 
@@ -54,12 +52,13 @@ def postgres_db():
     engine = create_engine(config.get_postgres_uri())
     wait_for_postgres_to_come_up(engine)
     metadata.create_all(engine)
+    return engine
 
 
 @pytest.fixture
 def postgres_session(postgres_db):
     start_mappers()
-    yield sessionmaker(bind=postgres_db)
+    yield sessionmaker(bind=postgres_db)()
     clear_mappers()
 
 
@@ -95,7 +94,7 @@ def add_stock(postgres_session):
             dict(batch_id=batch_id),
         )
         postgres_session.execute(
-            text("DLETE FROM batches WHERE id=:id"), dict(batch_id=batch_id)
+            text("DELETE FROM batches WHERE id=:batch_id"), dict(batch_id=batch_id)
         )
 
     for sku in skus_added:

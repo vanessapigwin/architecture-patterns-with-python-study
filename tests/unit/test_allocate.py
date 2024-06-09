@@ -1,6 +1,6 @@
 import pytest
 from allocation.domain.model import Batch, OrderLine, OutOfStock
-from allocation.service_layer.services import allocate
+from allocation.domain.model import allocate
 from datetime import date, timedelta
 
 

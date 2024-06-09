@@ -1,11 +1,31 @@
-from allocation.domain.model import OrderLine, Batch, OutOfStock
-from typing import List
+from allocation.adapters.repository import AbstractRepository
+from allocation.domain import model
 
 
-def allocate(line: OrderLine, batches: List[Batch]) -> str:
-    try:
-        batch = next(b for b in sorted(batches) if b.can_allocate(line))
-        batch.allocate(line)
-        return batch.reference
-    except StopIteration:
-        raise OutOfStock(f"Out of stock for sku {line.sku}")
+class InvalidSku(Exception):
+    pass
+
+
+def is_valid_sku(sku, batches):
+    return sku in {b.sku for b in batches}
+
+
+def add_batch(batch: model.Batch, repo: AbstractRepository, session):
+    repo.add(batch)
+    session.commit()
+
+
+def allocate(line: model.OrderLine, repo: AbstractRepository, session) -> str:
+    batches = repo.list()
+
+    if not is_valid_sku(line.sku, batches):
+        raise InvalidSku(f"Invalid sku: {line.sku}")
+
+    batchref = model.allocate(line, batches)
+    session.commit()
+
+    return batchref
+
+
+def deallocate(line: model.OrderLine, repo: AbstractRepository, session):
+    pass

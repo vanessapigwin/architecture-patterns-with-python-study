@@ -1,5 +1,6 @@
 from allocation.adapters.repository import AbstractRepository
 from allocation.domain import model
+from allocation.service_layer import unit_of_work
 from datetime import date
 from typing import Optional
 
@@ -13,43 +14,36 @@ def is_valid_sku(sku, batches):
 
 
 def add_batch(
-    ref: str, sku: str, qty: int, eta: Optional[date], repo: AbstractRepository, session
+    ref: str,
+    sku: str,
+    qty: int,
+    eta: Optional[date],
+    uow: unit_of_work.AbstractUnitOfWork,
 ):
-    batch = model.Batch(ref, sku, qty, eta)
-    repo.add(batch)
-    session.commit()
+    with uow:
+        uow.batches.add(model.Batch(ref, sku, qty, eta))
+        uow.commit()
 
 
 def allocate(
-    orderid: str,
-    sku: str,
-    qty: int,
-    repo: AbstractRepository,
-    session,
+    orderid: str, sku: str, qty: int, uow: unit_of_work.AbstractUnitOfWork
 ) -> str:
-    batches = repo.list()
     line = model.OrderLine(orderid, sku, qty)
 
-    if not is_valid_sku(line.sku, batches):
-        raise InvalidSku(f"Invalid sku: {line.sku}")
-
-    batchref = model.allocate(line, batches)
-    session.commit()
+    with uow:
+        batches = uow.batches.list()
+        if not is_valid_sku(line.sku, batches):
+            raise InvalidSku(f"Invalid sku: {line.sku}")
+        batchref = model.allocate(line, batches)
+        uow.commit()
 
     return batchref
 
 
-def deallocate(orderid: str, sku: str, qty: int, repo: AbstractRepository, session):
-    batches = repo.list()
+def deallocate(batchref: str, orderid: str, sku: str, qty: int, uow):
     line = model.OrderLine(orderid, sku, qty)
 
-    if not is_valid_sku(line.sku, batches):
-        raise InvalidSku(f"Invalid sku: {line.sku}")
-
-    try:
-        batch = next(batch for batch in batches if batch.sku == line.sku)
-    except StopIteration:
-        return
-
-    batch.deallocate(line)
-    session.commit()
+    with uow:
+        batch = uow.batches.get(batchref)
+        batch.deallocate(line)
+        uow.commit()

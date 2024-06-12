@@ -91,3 +91,33 @@ def test_retrieving_allocations(session):
     batch = session.query(model.Batch).one()
 
     assert batch._allocations == {model.OrderLine("order1", "sku1", 12)}
+
+
+def test_retrieving_allocations(session):
+    session.execute(
+        text(
+            'INSERT INTO order_lines (orderid, sku, qty) VALUES ("order1", "sku1", 12)'
+        )
+    )
+    [[olid]] = session.execute(
+        text("SELECT id FROM order_lines WHERE orderid=:orderid AND sku=:sku"),
+        dict(orderid="order1", sku="sku1"),
+    )
+    session.execute(
+        text(
+            "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
+            'VALUES ("batch1", "sku1", 100, null)'
+        )
+    )
+    [[bid]] = session.execute(
+        text("SELECT id FROM batches WHERE reference=:ref AND sku=:sku"),
+        dict(ref="batch1", sku="sku1"),
+    )
+    session.execute(
+        text("INSERT INTO allocations (orderline_id, batch_id) VALUES (:olid, :bid)"),
+        dict(olid=olid, bid=bid),
+    )
+
+    batch = session.query(model.Batch).one()
+
+    assert batch._allocations == {model.OrderLine("order1", "sku1", 12)}

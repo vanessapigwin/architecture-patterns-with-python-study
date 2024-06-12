@@ -7,6 +7,8 @@ from allocation.domain import model
 from allocation.adapters import orm, repository
 from allocation.service_layer import services
 
+from datetime import datetime
+
 
 orm.start_mappers()
 get_session = sessionmaker(bind=create_engine(config.get_postgres_uri()))
@@ -17,13 +19,38 @@ app = Flask(__name__)
 def allocate_endpoint():
     session = get_session()
     repo = repository.SqlAlchemyRepository(session)
-    line = model.OrderLine(
-        request.json["orderid"], request.json["sku"], request.json["qty"]
-    )
 
     try:
-        batchref = services.allocate(line, repo, session)
+        batchref = services.allocate(
+            request.json["orderid"],
+            request.json["sku"],
+            request.json["qty"],
+            repo,
+            session,
+        )
     except (model.OutOfStock, services.InvalidSku) as e:
         return {"messages": str(e)}, 400
 
     return {"batch_ref": batchref}, 201
+
+
+@app.route("/add_batch", methods=["POST"])
+def add_batch():
+    session = get_session()
+    repo = repository.SqlAlchemyRepository(session)
+
+    eta = request.json["eta"]
+
+    if eta is not None:
+        eta = datetime.fromisoformat(eta).date()
+
+    services.add_batch(
+        request.json["ref"],
+        request.json["sku"],
+        request.json["qty"],
+        eta,
+        repo,
+        session,
+    )
+
+    return "OK", 201

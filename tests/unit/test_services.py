@@ -11,23 +11,20 @@ later = tomorrow + timedelta(days=10)
 
 
 class FakeRepository(repository.AbstractRepository):
-    def __init__(self, batches):
-        self._batches = set(batches)
+    def __init__(self, products):
+        self.products = set(products)
 
-    def add(self, batch):
-        self._batches.add(batch)
+    def add(self, product):
+        self.products.add(product)
 
-    def get(self, reference):
-        return next(b for b in self._batches if b.reference == reference)
-
-    def list(self):
-        return list(self._batches)
+    def get(self, sku):
+        return next((p for p in self.products if p.sku == sku), None)
 
 
 class FakeUnitOFWork(unit_of_work.AbstractUnitOfWork):
 
     def __init__(self):
-        self.batches = FakeRepository([])
+        self.products = FakeRepository([])
         self.committed = False
 
     def commit(self):
@@ -35,6 +32,21 @@ class FakeUnitOFWork(unit_of_work.AbstractUnitOfWork):
 
     def rollback(self):
         pass
+
+
+def test_add_batch_for_new_product():
+    uow = FakeUnitOFWork()
+    services.add_batch("b1", "ties", 100, None, uow)
+    assert uow.products.get("ties")
+    assert uow.committed
+
+
+def test_add_batch_for_existing_product():
+    uow = FakeUnitOFWork()
+    services.add_batch("b1", "cats", 100, None, uow)
+    services.add_batch("b2", "cats", 2, None, uow)
+
+    assert "b2" in [b.reference for b in uow.products.get("cats").batches]
 
 
 def test_allocate_returns_allocation():
@@ -57,73 +69,3 @@ def test_commits():
     services.add_batch("b1", "ant", 100, None, uow)
     services.allocate("o1", "ant", 10, uow)
     assert uow.committed
-
-
-def test_service_add_batch_reflected():
-    uow = FakeUnitOFWork()
-    services.add_batch("mybatch", "penguins", 100, None, uow)
-    assert uow.batches.get("mybatch")
-    assert uow.committed
-
-
-def test_deallocate_decrements_available_qty():
-    uow = FakeUnitOFWork()
-    services.add_batch("b1", "penguins", 100, None, uow)
-    services.allocate("order1", "penguins", 10, uow)
-    batch = uow.batches.get(reference="b1")
-    assert batch.available_quantity == 90
-
-    services.deallocate("b1", "order1", "penguins", 10, uow)
-    assert batch.available_quantity == 100
-
-
-def test_prefers_current_stock_batches_to_shipments():
-    in_stock_batch = model.Batch("in-stock-batch", "PENGUIN-TOY", 100, None)
-    shipment_batch = model.Batch("shipment-batch", "PENGUIN-TOY", 100, tomorrow)
-    line = model.OrderLine("1234", "PENGUIN-TOY", 2)
-    model.allocate(line, [in_stock_batch, shipment_batch])
-
-    assert in_stock_batch.available_quantity == 98
-    assert shipment_batch.available_quantity == 100
-
-
-def test_prefers_warehouse_batches_to_shipment():
-    uow = FakeUnitOFWork()
-    services.add_batch("in-stock-batch", "clock", 100, None, uow)
-    services.add_batch("shipment-batch", "clock", 100, tomorrow, uow)
-    services.allocate("oref", "clock", 10, uow)
-    in_stock_batch = uow.batches.get("in-stock-batch")
-    shipment_batch = uow.batches.get("shipment-batch")
-
-    assert in_stock_batch.available_quantity == 90
-    assert shipment_batch.available_quantity == 100
-
-
-def test_prefers_earlier_batches():
-    earliest_batch = model.Batch("speedy-batch", "APPLE", 100, today)
-    normal_batch = model.Batch("normal-batch", "APPLE", 100, tomorrow)
-    last_batch = model.Batch("slow-batch", "APPLE", 100, later)
-    line = model.OrderLine("order1", "APPLE", 10)
-
-    model.allocate(line, [earliest_batch, normal_batch, last_batch])
-
-    assert earliest_batch.available_quantity == 90
-    assert normal_batch.available_quantity == 100
-    assert last_batch.available_quantity == 100
-
-
-def test_returns_allocated_batch_reference():
-    in_stock_batch = model.Batch("in-stock-batch", "GOLDEN-HAMMER", 100, None)
-    shipment_batch = model.Batch("shipment-batch", "GOLDEN-HAMMER", 100, tomorrow)
-    line = model.OrderLine("order-ref", "GOLDEN-HAMMER", 10)
-    allocation = model.allocate(line, [in_stock_batch, shipment_batch])
-
-    assert allocation == in_stock_batch.reference
-
-
-def test_raises_out_of_stock_exception_if_cannot_allocate():
-    batch = model.Batch("batch", "SPOON", 10, today)
-    model.allocate(model.OrderLine("order1", "SPOON", 10), [batch])
-
-    with pytest.raises(model.OutOfStock, match="SPOON"):
-        model.allocate(model.OrderLine("order2", "SPOON", 1), [batch])

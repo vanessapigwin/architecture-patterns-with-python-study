@@ -1,74 +1,61 @@
-from allocation.domain import model
-from allocation.adapters import repository
-from sqlalchemy import text
+from datetime import date, timedelta
+import pytest
+from allocation.domain.model import Product, OrderLine, Batch, OutOfStock
+
+today = date.today()
+tomorrow = today + timedelta(days=1)
+later = tomorrow + timedelta(days=10)
 
 
-def test_repository_can_save_a_batch(session):
-    batch = model.Batch("batch1", "SOME-ITEM", 100, eta=None)
+def test_prefers_warehouse_batches_to_shipments():
+    in_stock_batch = Batch("in-stock-batch", "RETRO-CLOCK", 100, eta=None)
+    shipment_batch = Batch("shipment-batch", "RETRO-CLOCK", 100, eta=tomorrow)
+    product = Product(sku="RETRO-CLOCK", batches=[in_stock_batch, shipment_batch])
+    line = OrderLine("oref", "RETRO-CLOCK", 10)
 
-    repo = repository.SqlAlchemyRepository(session)
-    repo.add(batch)
-    session.commit()
+    product.allocate(line)
 
-    rows = list(
-        session.execute(
-            text("SELECT reference, sku, _purchased_quantity, eta FROM 'batches'")
-        )
+    assert in_stock_batch.available_quantity == 90
+    assert shipment_batch.available_quantity == 100
+
+
+def test_prefers_earlier_batches():
+    earliest = Batch("speedy-batch", "MINIMALIST-SPOON", 100, eta=today)
+    medium = Batch("normal-batch", "MINIMALIST-SPOON", 100, eta=tomorrow)
+    latest = Batch("slow-batch", "MINIMALIST-SPOON", 100, eta=later)
+    product = Product(sku="MINIMALIST-SPOON", batches=[medium, earliest, latest])
+    line = OrderLine("order1", "MINIMALIST-SPOON", 10)
+
+    product.allocate(line)
+
+    assert earliest.available_quantity == 90
+    assert medium.available_quantity == 100
+    assert latest.available_quantity == 100
+
+
+def test_returns_allocated_batch_ref():
+    in_stock_batch = Batch("in-stock-batch-ref", "HIGHBROW-POSTER", 100, eta=None)
+    shipment_batch = Batch("shipment-batch-ref", "HIGHBROW-POSTER", 100, eta=tomorrow)
+    line = OrderLine("oref", "HIGHBROW-POSTER", 10)
+    product = Product(sku="HIGHBROW-POSTER", batches=[in_stock_batch, shipment_batch])
+    allocation = product.allocate(line)
+    assert allocation == in_stock_batch.reference
+
+
+def test_raises_out_of_stock_exception_if_cannot_allocate():
+    batch = Batch("batch1", "SMALL-FORK", 10, eta=today)
+    product = Product(sku="SMALL-FORK", batches=[batch])
+    product.allocate(OrderLine("order1", "SMALL-FORK", 10))
+
+    with pytest.raises(OutOfStock, match="SMALL-FORK"):
+        product.allocate(OrderLine("order2", "SMALL-FORK", 1))
+
+
+def test_increments_version_number():
+    line = OrderLine("oref", "SCANDI-PEN", 10)
+    product = Product(
+        sku="SCANDI-PEN", batches=[Batch("b1", "SCANDI-PEN", 100, eta=None)]
     )
-    assert rows == [("batch1", "SOME-ITEM", 100, None)]
-
-
-def insert_order_line(session):
-    session.execute(
-        text(
-            "INSERT INTO order_lines(orderid, sku, qty)"
-            "VALUES ('order1', 'GENERIC-ITEM', 12)"
-        )
-    )
-    [[orderline_id]] = session.execute(
-        text("SELECT id FROM order_lines WHERE orderid=:orderid AND sku=:sku"),
-        dict(orderid="order1", sku="GENERIC-ITEM"),
-    )
-
-    return orderline_id
-
-
-def insert_batch(session, batch_id):
-    session.execute(
-        text(
-            "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
-            "VALUES (:batch_id, 'GENERIC-ITEM', 100, null)"
-        ),
-        dict(batch_id=batch_id),
-    )
-    [[batch_id]] = session.execute(
-        text('SELECT id FROM batches WHERE reference=:batch_id AND sku="GENERIC-ITEM"'),
-        dict(batch_id=batch_id),
-    )
-    return batch_id
-
-
-def insert_allocation(session, orderline_id, batch_id):
-    session.execute(
-        text(
-            "INSERT INTO allocations (orderline_id, batch_id)"
-            "VALUES (:orderline_id, :batch_id)"
-        ),
-        dict(orderline_id=orderline_id, batch_id=batch_id),
-    )
-
-
-def test_repository_can_retrieve_a_batch_with_allocation(session):
-    orderline_id = insert_order_line(session)
-    batch_1_id = insert_batch(session, "batch1")
-    insert_batch(session, "batch_2")
-    insert_allocation(session, orderline_id, batch_1_id)
-
-    repo = repository.SqlAlchemyRepository(session)
-    retrieved = repo.get("batch1")
-
-    expected = model.Batch("batch1", "GENERIC-ITEM", 100, eta=None)
-    assert retrieved == expected
-    assert retrieved.sku == expected.sku
-    assert retrieved._purchased_quantity == expected._purchased_quantity
-    assert retrieved._allocations == {model.OrderLine("order1", "GENERIC-ITEM", 12)}
+    product.version_number = 7
+    product.allocate(line)
+    assert product.version_number == 8

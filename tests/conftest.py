@@ -10,6 +10,23 @@ from sqlalchemy import text
 
 from allocation.adapters.orm import metadata, start_mappers
 import allocation.config as config
+import uuid
+
+
+def random_suffix():
+    return uuid.uuid4().hex[:6]
+
+
+def random_sku(name=""):
+    return f"sku-{name}-{random_suffix()}"
+
+
+def random_batchref(name=""):
+    return f"batch-{name}-{random_suffix()}"
+
+
+def random_orderid(name=""):
+    return f"order-{name}-{random_suffix()}"
 
 
 @pytest.fixture
@@ -60,6 +77,13 @@ def postgres_db():
     wait_for_postgres_to_come_up(engine)
     metadata.create_all(engine)
     return engine
+
+
+@pytest.fixture
+def postgres_session_factory(postgres_db):
+    start_mappers()
+    yield sessionmaker(bind=postgres_db)
+    clear_mappers()
 
 
 @pytest.fixture

@@ -1,13 +1,23 @@
 from allocation.domain import events
+from allocation.service_layer import handlers
+from allocation.service_layer import unit_of_work
 
 
-def send_out_of_stock_notification(event: events.OutOfStock):
-    print(event.sku)
+HANDLERS = {
+    events.OutOfStock: [handlers.send_out_of_stock_notification],
+    events.AllocationRequired: [handlers.allocate],
+    events.BatchCreated: [handlers.add_batch],
+}
 
 
-HANDLERS = {events.OutOfStock: [send_out_of_stock_notification]}
+def handle(event: events.Event, uow: unit_of_work.AbstractUnitOfWork):
+    results = []
 
+    queue = [event]
+    while queue:
+        event = queue.pop(0)
+        for handler in HANDLERS[type(event)]:
+            results.append(handler(event, uow=uow))
+            queue.extend(uow.collect_new_events())
 
-def handle(event: events.Event):
-    for handler in HANDLERS[type(event)]:
-        handler(event)
+    return results

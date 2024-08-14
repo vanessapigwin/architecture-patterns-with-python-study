@@ -1,4 +1,5 @@
-from allocation.domain import model
+from __future__ import annotations
+from allocation.domain import model, events
 from allocation.service_layer import unit_of_work
 from datetime import date
 from typing import Optional
@@ -13,25 +14,22 @@ def is_valid_sku(sku, batches):
 
 
 def add_batch(
-    ref: str,
-    sku: str,
-    qty: int,
-    eta: Optional[date],
+    event: events.BatchCreated,
     uow: unit_of_work.AbstractUnitOfWork,
 ):
     with uow:
-        product = uow.products.get(sku=sku)
+        product = uow.products.get(sku=event.sku)
         if product is None:
-            product = model.Product(sku, batches=[])
+            product = model.Product(event.sku, batches=[])
             uow.products.add(product)
-        product.batches.append(model.Batch(ref, sku, qty, eta))
+        product.batches.append(model.Batch(event.ref, event.sku, event.qty, event.eta))
         uow.commit()
 
 
 def allocate(
-    orderid: str, sku: str, qty: int, uow: unit_of_work.AbstractUnitOfWork
+    event: events.AllocationRequired, uow: unit_of_work.AbstractUnitOfWork
 ) -> str:
-    line = model.OrderLine(orderid, sku, qty)
+    line = model.OrderLine(event.orderid, event.sku, event.qty)
 
     with uow:
         product = uow.products.get(sku=line.sku)
@@ -64,3 +62,9 @@ def deallocate(
             raise InvalidSku(f"Invalid sku: {line.sku}")
 
         uow.commit()
+
+
+def send_out_of_stock_notification(
+    event: events.OutOfStock, uow: unit_of_work.AbstractUnitOfWork
+):
+    print(event.sku)

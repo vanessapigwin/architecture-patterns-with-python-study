@@ -12,13 +12,14 @@ later = tomorrow + timedelta(days=10)
 
 class FakeRepository(repository.AbstractRepository):
     def __init__(self, products):
-        self.products = set(products)
+        super().__init__()
+        self._products = set(products)
 
-    def add(self, product):
-        self.products.add(product)
+    def _add(self, product):
+        self._products.add(product)
 
-    def get(self, sku):
-        return next((p for p in self.products if p.sku == sku), None)
+    def _get(self, sku):
+        return next((p for p in self._products if p.sku == sku), None)
 
 
 class FakeUnitOFWork(unit_of_work.AbstractUnitOfWork):
@@ -27,7 +28,7 @@ class FakeUnitOFWork(unit_of_work.AbstractUnitOfWork):
         self.products = FakeRepository([])
         self.committed = False
 
-    def commit(self):
+    def _commit(self):
         self.committed = True
 
     def rollback(self):

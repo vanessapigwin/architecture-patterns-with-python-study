@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from datetime import date
 from typing import Optional, List
-from allocation.domain import events
+from . import events
+from sqlalchemy import orm
 
 
 @dataclass(unsafe_hash=True)
@@ -57,16 +58,16 @@ class Batch:
         return self.available_quantity >= line.qty and self.sku == line.sku
 
 
-class OutOfStock(Exception):
-    pass
-
-
 class Product:
 
     def __init__(self, sku: str, batches: List[Batch], version_number: int = 0):
         self.sku = sku
         self.batches = batches
         self.version_number = version_number
+        self.events = []
+
+    @orm.reconstructor
+    def init_on_load(self):
         self.events = []
 
     def allocate(self, line: OrderLine) -> str:
@@ -77,3 +78,4 @@ class Product:
             return batch.reference
         except StopIteration:
             self.events.append(events.OutOfStock(line.sku))
+            return None

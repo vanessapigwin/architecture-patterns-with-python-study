@@ -7,6 +7,7 @@ HANDLERS = {
     events.OutOfStock: [handlers.send_out_of_stock_notification],
     events.AllocationRequired: [handlers.allocate],
     events.BatchCreated: [handlers.add_batch],
+    events.BatchQuantityChanged: [handlers.change_batch_quantity],
 }
 
 

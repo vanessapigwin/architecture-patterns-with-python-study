@@ -1,8 +1,6 @@
 from __future__ import annotations
 from allocation.domain import model, events
 from allocation.service_layer import unit_of_work
-from datetime import date
-from typing import Optional
 
 
 class InvalidSku(Exception):
@@ -68,3 +66,12 @@ def send_out_of_stock_notification(
     event: events.OutOfStock, uow: unit_of_work.AbstractUnitOfWork
 ):
     print(event.sku)
+
+
+def change_batch_quantity(
+    event: events.BatchQuantityChanged, uow: unit_of_work.SqlAlchemyUnitOfWork
+):
+    with uow:
+        product = uow.products.get_by_batchref(batchref=event.ref)
+        product.change_batch_quantity(ref=event.ref, qty=event.qty)
+        uow.commit()

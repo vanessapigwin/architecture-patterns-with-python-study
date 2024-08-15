@@ -51,11 +51,22 @@ class Batch:
         return sum(line.qty for line in self._allocations)
 
     @property
+    def purchased_quantity(self):
+        return self._purchased_quantity
+
+    @purchased_quantity.setter
+    def purchased_quantity(self, qty: int):
+        self._purchased_quantity = qty
+
+    @property
     def available_quantity(self):
         return self._purchased_quantity - self.allocated_quantity
 
     def can_allocate(self, line):
         return self.available_quantity >= line.qty and self.sku == line.sku
+
+    def deallocate_one(self) -> OrderLine:
+        return self._allocations.pop()
 
 
 class Product:
@@ -79,3 +90,12 @@ class Product:
         except StopIteration:
             self.events.append(events.OutOfStock(line.sku))
             return None
+
+    def change_batch_quantity(self, ref: str, qty: int):
+        batch = next(b for b in self.batches if b.reference == ref)
+        batch.purchased_quantity = qty
+        while batch.available_quantity < 0:
+            line = batch.deallocate_one()
+            self.events.append(
+                events.AllocationRequired(line.orderid, line.sku, line.qty)
+            )

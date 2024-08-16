@@ -1,5 +1,5 @@
 from flask import Flask, request
-from allocation.domain import events, commands
+from allocation.domain import commands
 from allocation.adapters import orm
 from allocation.service_layer import unit_of_work, messagebus
 from allocation.service_layer.handlers import InvalidSku

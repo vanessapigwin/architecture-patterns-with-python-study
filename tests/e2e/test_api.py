@@ -1,17 +1,10 @@
-import uuid
 import pytest
 import requests
-
+from api_client import post_to_add_batch
 from allocation import config
+
+
 from conftest import random_batchref, random_orderid, random_sku
-
-
-def post_to_add_batch(ref, sku, qty, eta):
-    url = config.get_api_url()
-    r = requests.post(
-        f"{url}/add_batch", json={"ref": ref, "sku": sku, "qty": qty, "eta": eta}
-    )
-    assert r.status_code == 201
 
 
 @pytest.mark.usefixtures("postgres_db")

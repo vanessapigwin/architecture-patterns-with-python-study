@@ -1,7 +1,10 @@
-pytest==8.2.0
 sqlalchemy==2.0.0
 flask==3.0.0
 psycopg2-binary==2.9.9
+redis==5.0.8
+
+pytest==8.2.0
 requests
 pytest-icdiff
 mypy
+tenacity==9.0.0

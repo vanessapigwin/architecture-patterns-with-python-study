@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
 from typing import Optional, List
-from . import events
+from . import events, commands
 from sqlalchemy import orm
 
 
@@ -96,6 +96,4 @@ class Product:
         batch.purchased_quantity = qty
         while batch.available_quantity < 0:
             line = batch.deallocate_one()
-            self.events.append(
-                events.AllocationRequired(line.orderid, line.sku, line.qty)
-            )
+            self.events.append(commands.Allocate(line.orderid, line.sku, line.qty))

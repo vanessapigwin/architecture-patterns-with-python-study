@@ -1,10 +1,14 @@
 import api_client
+import pytest
 import redis_client
 import json
 from tenacity import Retrying, stop_after_delay
 from conftest import random_batchref, random_orderid, random_sku
 
 
+@pytest.mark.usefixtures("postgres_db")
+@pytest.mark.usefixtures("restart_api")
+@pytest.mark.usefixtures("restart_redis_pubsub")
 def test_change_batch_quantity_leading_to_reallocation():
     orderid, sku = random_orderid(), random_sku()
     earlier_batch, later_batch = random_batchref("old"), random_batchref("newer")

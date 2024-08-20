@@ -24,7 +24,7 @@ def allocate_endpoint():
     except InvalidSku as e:
         return {"messages": str(e)}, 400
 
-    return {"batch_ref": batchref}, 201
+    return {"batchref": batchref}, 201
 
 
 @app.route("/add_batch", methods=["POST"])

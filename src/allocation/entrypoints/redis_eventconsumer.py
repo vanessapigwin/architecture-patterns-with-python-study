@@ -25,3 +25,7 @@ def handle_change_batch_quantity(m):
     data = json.loads(m["data"])
     cmd = commands.ChangeBatchQuantity(ref=data["batchref"], qty=data["qty"])
     messagebus.handle(cmd, unit_of_work.SqlAlchemyUnitOfWork())
+
+
+if __name__ == "__main__":
+    main()

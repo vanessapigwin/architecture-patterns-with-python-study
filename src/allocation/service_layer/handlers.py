@@ -1,6 +1,7 @@
 from __future__ import annotations
 from allocation.domain import model, events, commands
 from allocation.service_layer import unit_of_work
+from allocation.adapters import redis_eventpublisher
 
 
 class InvalidSku(Exception):
@@ -75,3 +76,9 @@ def change_batch_quantity(
         product = uow.products.get_by_batchref(batchref=command.ref)
         product.change_batch_quantity(ref=command.ref, qty=command.qty)
         uow.commit()
+
+
+def publish_allocated_event(
+    event: events.Allocated, uow: unit_of_work.AbstractUnitOfWork
+):
+    redis_eventpublisher.publish("line_allocated", event)

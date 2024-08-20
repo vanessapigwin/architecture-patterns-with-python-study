@@ -25,4 +25,4 @@ e2e-tests: up
 	docker compose run --rm --no-deps --entrypoint=pytest app /tests/e2e
 
 logs:
-	docker compose logs app | tail -100
+	docker-compose logs --tail=25 app redis_pubsub

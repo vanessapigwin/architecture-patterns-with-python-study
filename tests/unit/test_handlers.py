@@ -3,12 +3,7 @@ from allocation.domain import events, commands
 from allocation.adapters import repository
 from allocation.domain.model import Product
 from allocation.service_layer import unit_of_work, messagebus, handlers
-from datetime import date, timedelta
-
-
-today = date.today()
-tomorrow = today + timedelta(days=1)
-later = tomorrow + timedelta(days=10)
+from conftest import today, tomorrow, later
 
 
 class FakeRepository(repository.AbstractRepository):
@@ -94,7 +89,7 @@ class TestChangeBatchQuantity:
         uow = FakeUnitOFWork()
         event_history = [
             commands.CreateBatch("batch1", "cat-table", 50, None),
-            commands.CreateBatch("batch2", "cat-table", 50, date.today()),
+            commands.CreateBatch("batch2", "cat-table", 50, today),
             commands.Allocate("o1", "cat-table", 20),
             commands.Allocate("o2", "cat-table", 20),
         ]

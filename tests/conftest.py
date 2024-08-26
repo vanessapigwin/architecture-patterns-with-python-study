@@ -12,6 +12,12 @@ import allocation.config as config
 import shutil
 import subprocess
 import uuid
+from datetime import date, timedelta
+
+
+today = date.today()
+tomorrow = today + timedelta(days=1)
+later = tomorrow + timedelta(days=10)
 
 
 def random_suffix():

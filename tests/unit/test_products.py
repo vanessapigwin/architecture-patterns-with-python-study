@@ -1,11 +1,7 @@
 from datetime import date, timedelta
 from allocation.domain import events
 from allocation.domain.model import Product, OrderLine, Batch
-from conftest import random_sku
-
-today = date.today()
-tomorrow = today + timedelta(days=1)
-later = today + timedelta(days=10)
+from conftest import random_sku, today, later, tomorrow
 
 
 def test_prefers_warehouse_batches_to_shipments():

@@ -7,13 +7,13 @@ from conftest import random_batchref, random_orderid, random_sku
 import threading
 
 
-def insert_batch(session, ref, sku, qty, eta, product_version=1):
-    session.execute(
+def insert_batch(sqlite_session_factory, ref, sku, qty, eta, product_version=1):
+    sqlite_session_factory.execute(
         text("INSERT INTO products (sku, version_number) VALUES (:sku, :version)"),
         dict(sku=sku, version=product_version),
     )
 
-    session.execute(
+    sqlite_session_factory.execute(
         text(
             "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
             " VALUES (:ref, :sku, :qty, :eta)"
@@ -22,12 +22,12 @@ def insert_batch(session, ref, sku, qty, eta, product_version=1):
     )
 
 
-def get_allocated_batch_ref(session, orderid, sku):
-    [[orderlineid]] = session.execute(
+def get_allocated_batch_ref(sqlite_session_factory, orderid, sku):
+    [[orderlineid]] = sqlite_session_factory.execute(
         text("SELECT id FROM order_lines WHERE orderid=:orderid AND sku=:sku"),
         dict(orderid=orderid, sku=sku),
     )
-    [[batchref]] = session.execute(
+    [[batchref]] = sqlite_session_factory.execute(
         text(
             "SELECT b.reference FROM allocations JOIN batches AS b ON batch_id = b.id"
             " WHERE orderline_id=:orderlineid"
@@ -49,12 +49,12 @@ def try_to_allocate(orderid, sku, exceptions):
         exceptions.append(e)
 
 
-def test_uow_can_retrieve_a_batch_and_allocate_to_it(session_factory):
-    session = session_factory()
+def test_uow_can_retrieve_a_batch_and_allocate_to_it(sqlite_session_factory):
+    session = sqlite_session_factory()
     insert_batch(session, "batch1", "HIPSTER-WORKBENCH", 100, None)
     session.commit()
 
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session_factory)
+    uow = unit_of_work.SqlAlchemyUnitOfWork(sqlite_session_factory)
     with uow:
         product = uow.products.get(sku="HIPSTER-WORKBENCH")
         line = model.OrderLine("o1", "HIPSTER-WORKBENCH", 10)
@@ -65,27 +65,27 @@ def test_uow_can_retrieve_a_batch_and_allocate_to_it(session_factory):
     assert batchref == "batch1"
 
 
-def test_rolls_back_uncommitted_work_by_default(session_factory):
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session_factory)
+def test_rolls_back_uncommitted_work_by_default(sqlite_session_factory):
+    uow = unit_of_work.SqlAlchemyUnitOfWork(sqlite_session_factory)
     with uow:
         insert_batch(uow.session, "batch1", "MEDIUM-PLINTH", 100, None)
 
-    new_session = session_factory()
+    new_session = sqlite_session_factory()
     rows = list(new_session.execute(text('SELECT * FROM "batches"')))
     assert rows == []
 
 
-def test_rolls_back_on_error(session_factory):
+def test_rolls_back_on_error(sqlite_session_factory):
     class MyException(Exception):
         pass
 
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session_factory)
+    uow = unit_of_work.SqlAlchemyUnitOfWork(sqlite_session_factory)
     with pytest.raises(MyException):
         with uow:
             insert_batch(uow.session, "batch1", "LARGE-FORK", 100, None)
             raise MyException()
 
-    new_session = session_factory()
+    new_session = sqlite_session_factory()
     rows = list(new_session.execute(text('SELECT * FROM "batches"')))
     assert rows == []
 

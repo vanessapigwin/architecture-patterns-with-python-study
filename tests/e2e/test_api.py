@@ -1,7 +1,5 @@
 import pytest
-import requests
 import api_client
-from allocation import config
 
 
 from conftest import random_batchref, random_orderid, random_sku

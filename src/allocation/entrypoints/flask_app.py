@@ -19,12 +19,11 @@ def allocate_endpoint():
             request.json["sku"],
             request.json["qty"],
         )
-        result = messagebus.handle(cmd, unit_of_work.SqlAlchemyUnitOfWork())
-        batchref = result.pop(0)
+        messagebus.handle(cmd, unit_of_work.SqlAlchemyUnitOfWork())
     except InvalidSku as e:
         return {"messages": str(e)}, 400
 
-    return {"batchref": batchref}, 202
+    return "OK", 202
 
 
 @app.route("/add_batch", methods=["POST"])

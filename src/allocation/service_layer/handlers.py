@@ -3,6 +3,7 @@ from allocation.domain import model, events, commands
 from allocation.service_layer import unit_of_work
 from allocation.adapters import redis_eventpublisher
 from sqlalchemy import text
+from dataclasses import asdict
 
 
 class InvalidSku(Exception):
@@ -57,26 +58,26 @@ def add_allocation_to_read_model(
         uow.commit()
 
 
-def deallocate(
-    batchref: str,
-    orderid: str,
-    sku: str,
-    qty: int,
-    uow: unit_of_work.AbstractUnitOfWork,
-):
-    line = model.OrderLine(orderid, sku, qty)
-
+def reallocate(event: events.Deallocated, uow: unit_of_work.AbstractUnitOfWork):
     with uow:
-        product = uow.products.get(sku=line.sku)
-        if product is None:
-            raise InvalidSku(f"Invalid sku: {line.sku}")
+        product = uow.products.get(sku=event.sku)
+        product.events.append(commands.Allocate(**asdict(event)))
+        uow.commit()
 
-        try:
-            batch = next(b for b in product.batches if b.reference == batchref)
-            batch.deallocate(line)
-        except StopIteration:
-            raise InvalidSku(f"Invalid sku: {line.sku}")
 
+def remove_allocation_from_read_model(
+    event: events.Deallocated, uow: unit_of_work.AbstractUnitOfWork
+):
+    with uow:
+        uow.session.execute(
+            text(
+                """
+                DELETE FROM allocations_view
+                WHERE orderid = :orderid AND sku = :sku
+                """
+            ),
+            dict(orderid=event.orderid, sku=event.sku),
+        )
         uow.commit()
 
 

@@ -1,9 +1,9 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from allocation.domain import commands
 from allocation.adapters import orm
 from allocation.service_layer import unit_of_work, messagebus
 from allocation.service_layer.handlers import InvalidSku
-
+from allocation import views
 from datetime import datetime
 
 
@@ -24,7 +24,7 @@ def allocate_endpoint():
     except InvalidSku as e:
         return {"messages": str(e)}, 400
 
-    return {"batchref": batchref}, 201
+    return {"batchref": batchref}, 202
 
 
 @app.route("/add_batch", methods=["POST"])
@@ -41,3 +41,12 @@ def add_batch():
     )
 
     return "OK", 201
+
+
+@app.route("/allocations/<orderid>", methods=["GET"])
+def allocations_view_endpoint(orderid):
+    uow = unit_of_work.SqlAlchemyUnitOfWork()
+    result = views.allocations(orderid, uow)
+    if not result:
+        return "Not Found", 404
+    return jsonify(result), 200

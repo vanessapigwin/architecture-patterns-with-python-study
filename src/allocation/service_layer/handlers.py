@@ -2,6 +2,7 @@ from __future__ import annotations
 from allocation.domain import model, events, commands
 from allocation.service_layer import unit_of_work
 from allocation.adapters import redis_eventpublisher
+from sqlalchemy import text
 
 
 class InvalidSku(Exception):
@@ -38,6 +39,22 @@ def allocate(command: commands.Allocate, uow: unit_of_work.AbstractUnitOfWork) -
         uow.commit()
 
     return batchref
+
+
+def add_allocation_to_read_model(
+    event: events.Allocated, uow: unit_of_work.AbstractUnitOfWork
+):
+    with uow:
+        uow.session.execute(
+            text(
+                """
+                INSERT INTO allocations_view (orderid, sku, batchref)
+                VALUES (:orderid, :sku, :batchref)
+                """
+            ),
+            dict(orderid=event.orderid, sku=event.sku, batchref=event.batchref),
+        )
+        uow.commit()
 
 
 def deallocate(

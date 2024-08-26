@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 
 EVENT_HANDLERS = {
     events.OutOfStock: [handlers.send_out_of_stock_notification],
-    events.Allocated: [handlers.publish_allocated_event],
+    events.Allocated: [
+        handlers.publish_allocated_event,
+        handlers.add_allocation_to_read_model,
+    ],
 }
 COMMAND_HANDLERS = {
     commands.Allocate: handlers.allocate,

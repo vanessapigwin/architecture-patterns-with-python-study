@@ -1,9 +1,10 @@
 from __future__ import annotations
 from allocation.domain import model, events, commands
 from allocation.service_layer import unit_of_work
-from allocation.adapters import redis_eventpublisher
+from allocation.adapters import redis_eventpublisher, notifications
 from sqlalchemy import text
 from dataclasses import asdict
+from typing import Callable
 
 
 class InvalidSku(Exception):
@@ -82,9 +83,12 @@ def remove_allocation_from_read_model(
 
 
 def send_out_of_stock_notification(
-    event: events.OutOfStock, uow: unit_of_work.AbstractUnitOfWork
+    event: events.OutOfStock, notifications: notifications.AbstractNotifications
 ):
-    print(event.sku)
+    notifications.send(
+        "user@mail.com",
+        f"Out of stock for {event.sku}",
+    )
 
 
 def change_batch_quantity(
@@ -96,7 +100,23 @@ def change_batch_quantity(
         uow.commit()
 
 
-def publish_allocated_event(
-    event: events.Allocated, uow: unit_of_work.AbstractUnitOfWork
-):
-    redis_eventpublisher.publish("line_allocated", event)
+def publish_allocated_event(event: events.Allocated, publish: Callable):
+    publish("line_allocated", event)
+
+
+EVENT_HANDLERS = {
+    events.OutOfStock: [send_out_of_stock_notification],
+    events.Allocated: [
+        publish_allocated_event,
+        add_allocation_to_read_model,
+    ],
+    events.Deallocated: [
+        remove_allocation_from_read_model,
+        reallocate,
+    ],
+}
+COMMAND_HANDLERS = {
+    commands.Allocate: allocate,
+    commands.CreateBatch: add_batch,
+    commands.ChangeBatchQuantity: change_batch_quantity,
+}

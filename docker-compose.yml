@@ -7,10 +7,12 @@ services:
     depends_on:
       - postgres
       - redis
+      - mailhog
     environment:
       - DB_HOST=postgres
       - DB_PASSWORD=abc123
       - REDIS_HOST=redis
+      - EMAIL_HOST=mailhog
       - PYTHONDONTWRITEBYTECODE=1
     volumes:
       - ./src:/src
@@ -21,11 +23,13 @@ services:
     image: allocation-image
     depends_on:
       - redis_pubsub
+      - mailhog
     environment:
       - DB_HOST=postgres
       - DB_PASSWORD=abc123
       - API_HOST=app
       - REDIS_HOST=redis
+      - EMAIL_HOST=mailhog
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
       - FLASK_DEBUG=1
@@ -49,3 +53,9 @@ services:
     image: redis:alpine
     ports:
       - "6379:6379"
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "11025:1025"
+      - "18025:8025"
